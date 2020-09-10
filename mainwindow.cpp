@@ -9,13 +9,17 @@
 #include <QTime>
 #include <windows.h>
 #include <QPalette>
+#include <QFile>
+#include <QElapsedTimer>
+#include <QDateTime>
 
 using namespace std;
 
 int totalPoints = 0;
 QTimer *timer;
 QTime *t = new QTime(0, 5, 0);
-
+map <string, int> points;
+QElapsedTimer elapsedTime;
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -26,6 +30,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     ui->lineEdit->setText(QString::number(totalPoints));
     QCheckBox *checkBox[16];
+
     for(int i = 0; i < 16; ++i){
       QString checkBoxName = "checkBox" + QString::number(i);
       checkBox[i] = MainWindow::findChild<QCheckBox*>(checkBoxName);
@@ -70,6 +75,7 @@ void MainWindow::changeTotal(){
             int number = stoi(num);
             totalPoints += number;
             ui->lineEdit->setText(QString::number(totalPoints));
+            points[box->text().toStdString()] = elapsedTime.elapsed();
     }
     if(box->checkState() == false){
         string mystr = pointsVal.toStdString();
@@ -84,6 +90,7 @@ void MainWindow::changeTotal(){
             int number = stoi(num);
             totalPoints -= number;
             ui->lineEdit->setText(QString::number(totalPoints));
+            points.erase(box->text().toStdString());
     }
 
 }
@@ -108,10 +115,12 @@ void MainWindow::updateCountdown(){
 
 void MainWindow::on_pushButton_timer_clicked()
 {    ui->countdownTimer->setStyleSheet("QLineEdit {color: black;}");
+    t->start();
     t->setHMS(0, 5, 0);
+    elapsedTime.start();
     timer = new QTimer();
     connect(timer, SIGNAL(timeout()), this, SLOT(updateCountdown()));
-    timer->start(1000); // times out after 5 mins
+    timer->start(1000);
 }
 
 void MainWindow::on_radioButton1_clicked()
@@ -140,3 +149,39 @@ void MainWindow::on_pushButton_clicked()
     notesWindow = new NotesWindow(this);
     notesWindow->show();
 }
+multimap<int, string> invert(map<string, int> & mymap)
+{
+    multimap<int, string> multiMap;
+
+    map<string, int> :: iterator it;
+    for (it=mymap.begin(); it!=mymap.end(); it++)
+    {
+        multiMap.insert(make_pair(it->second, it->first));
+    }
+
+    return multiMap;
+}
+
+void MainWindow::on_pushButton_6_clicked()
+{
+    QDateTime dateTime = dateTime.currentDateTime();
+    QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh-mm-ss");
+    QString fname = "file_" + dateTimeString + ".txt";
+    QFile file(fname);
+    if(!file.open(QFile::WriteOnly | QFile::Text)){
+        QMessageBox::warning(this, "..", "cannot open file!");
+        return;
+    }
+    QTextStream out(&file);
+    // invert mymap using the invert function created above
+    multimap<int, string> newmap = invert(points);
+    for (auto i = newmap.begin(); i != newmap.end(); i++) {
+            string fileContent = to_string((i->first)/1000) +" seconds" + " : " + i->second.c_str() + "\n";
+            file.write(fileContent.c_str());
+        }
+
+    file.flush();
+    file.close();
+}
+// Function to convert a map<key,value> to a multimap<value,key>
+
